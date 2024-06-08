@@ -1,9 +1,9 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, HttpStatus, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaClient } from '@prisma/client';
 import { PaginationDto } from 'src/common';
-import { Product } from './entities/product.entity';
+import { RpcException } from '@nestjs/microservices';
 
 @Injectable()
 export class ProductsService extends PrismaClient implements OnModuleInit{
@@ -58,7 +58,10 @@ export class ProductsService extends PrismaClient implements OnModuleInit{
       }
     })
     if( !productId )
-      throw new NotFoundException(`el producto con id: #${id} no esta disponible`)
+      throw new RpcException({
+    message:`el producto con id: #${id} no esta disponible`,
+    status: HttpStatus.BAD_REQUEST,
+    })
 
     return productId
   }
@@ -70,29 +73,22 @@ export class ProductsService extends PrismaClient implements OnModuleInit{
 
     const { id:__, ...data } = updateProductDto
 
-  try {
-
+  
     await this.findOne( id );
+    
+    const productoActualizado =  this.product.update({
+      where:{ id: id},
+      data: data,   
+    });
 
-   return{  
-    data: this.product.update({
-
-    where:{ id: id},
-    data: data,   
-    }),
-      msg: { msg: 'actualizado con exito '}
-  }  
-  } catch (error) {  
-      throw new BadRequestException( error.message );   
-    }
+    return productoActualizado;
+    
   }
 
   
   // ################ ACTUALIZA LA DISPONIBILIDAD DEL PRODUCTO EN FALSE #################
 
   async remove(id: number) {
-
-    try {
 
       await this.findOne( id );
 
@@ -103,9 +99,7 @@ export class ProductsService extends PrismaClient implements OnModuleInit{
         }
       })
       return productoDisponible
-      
-    } catch (error) {
-      throw new BadRequestException( error.message );
-    }
   }
 }
+  
+  
